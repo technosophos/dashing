@@ -1,0 +1,14 @@
+{
+    "name": "Dockerfile",
+    "package": "dockerfile",
+    "index": "index.html",
+    "selectors": {
+        "#dockerfile-reference": "Package",
+        "article>h2": "Command"
+    },
+    "ignore": [
+        "Usage", "Format", "Environment replacement", "Dockerfile examples", "Dockerfile reference"
+    ],
+    "icon32x32": "",
+    "allowJS": false
+}

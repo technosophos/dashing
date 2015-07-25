@@ -37,6 +37,7 @@ const plist = `<?xml version="1.0" encoding="UTF-8"?>
 	<string>dashtoc</string>
 	<key>dashIndexFilePath</key>
 	<string>{{.Index}}</string>
+	<key>isJavaScriptEnabled</key><{{.AllowJS}}/>
 </dict>
 </plist>
 `
@@ -44,6 +45,8 @@ const plist = `<?xml version="1.0" encoding="UTF-8"?>
 type Dashing struct {
 	// The human-oriented name of the package.
 	Name string `json:"name"`
+	// Computer-readable name. Recommendation is to use one word.
+	Package string `json:"package"`
 	// The location of the index.html file.
 	Index string `json:"index"`
 	// Selectors to match.
@@ -52,7 +55,10 @@ type Dashing struct {
 	Ignore []string `json:"ignore"`
 	// A 32x32 pixel PNG image.
 	Icon32x32 string `json:"icon32x32"`
+	AllowJS   bool   `json:"allowJS"`
 }
+
+var ignoreHash map[string]bool
 
 func main() {
 	app := cli.NewApp()
@@ -82,9 +88,10 @@ func commands() []cli.Command {
 			},
 		},
 		{
-			Name:   "init",
-			Usage:  "create a new template for building documentation",
-			Action: create,
+			Name:      "init",
+			ShortName: "create",
+			Usage:     "create a new template for building documentation",
+			Action:    create,
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "config, f",
@@ -101,8 +108,9 @@ func create(c *cli.Context) {
 		f = "dashing.json"
 	}
 	conf := Dashing{
-		Name:  "Dashing",
-		Index: "index.html",
+		Name:    "Dashing",
+		Package: "dashing",
+		Index:   "index.html",
 		Selectors: map[string]string{
 			"title": "Package",
 			"dt a":  "Command",
@@ -125,11 +133,11 @@ func create(c *cli.Context) {
 func build(c *cli.Context) {
 	var dashing Dashing
 
-	if !c.Args().Present() {
-		fmt.Printf("Name is required: dashing build NAME\n")
-		return
-	}
-	name := c.Args().First()
+	//if !c.Args().Present() {
+	//fmt.Printf("Name is required: dashing build NAME\n")
+	//return
+	//}
+	//name := c.Args().First()
 	source := c.String("source")
 	if len(source) == 0 {
 		source = "."
@@ -151,10 +159,13 @@ func build(c *cli.Context) {
 		os.Exit(1)
 	}
 
+	name := dashing.Package
+
 	fmt.Printf("Building %s from files in '%s'.\n", name, source)
 
 	os.MkdirAll(name+".docset/Contents/Resources/Documents/", 0755)
 
+	setIgnore(dashing.Ignore)
 	addPlist(name, &dashing)
 	if len(dashing.Icon32x32) > 0 {
 		addIcon(dashing.Icon32x32, name+".docset/icon.png")
@@ -166,7 +177,13 @@ func build(c *cli.Context) {
 	}
 	defer db.Close()
 	texasRanger(source, name, dashing, db)
+}
 
+func setIgnore(i []string) {
+	ignoreHash = make(map[string]bool, len(i))
+	for _, item := range i {
+		ignoreHash[item] = true
+	}
 }
 
 func addPlist(name string, config *Dashing) {
@@ -178,10 +195,16 @@ func addPlist(name string, config *Dashing) {
 		fancyName = strings.ToTitle(name)
 	}
 
+	aj := "false"
+	if config.AllowJS {
+		aj = "true"
+	}
+
 	tvars := map[string]string{
 		"Name":      name,
 		"FancyName": fancyName,
 		"Index":     config.Index,
+		"AllowJS":   aj,
 	}
 
 	err := t.Execute(&file, tvars)
@@ -275,13 +298,24 @@ func parseHTML(path, dest string, dashing Dashing) ([]*reference, error) {
 		found := m.MatchAll(top)
 		for _, n := range found {
 			name := text(n)
+
+			// Skip things explicitly ignored.
+			if ignored(name) {
+				fmt.Printf("Skipping entry for %s (Ignored by dashing JSON)\n", name)
+				continue
+			}
 			// References we want to track.
 			refs = append(refs, &reference{name, etype, path + "#" + anchor(n)})
 			// We need to modify the DOM with a special link to support TOC.
-			n.InsertBefore(newA(name, etype), nil)
+			n.Parent.InsertBefore(newA(name, etype), n)
 		}
 	}
 	return refs, writeHTML(path, dest, top)
+}
+
+func ignored(n string) bool {
+	_, ok := ignoreHash[n]
+	return ok
 }
 
 func text(node *html.Node) string {
@@ -296,6 +330,10 @@ func text(node *html.Node) string {
 	return b.String()
 }
 
+// tcounter is used to generate automatic anchors.
+// NOTE: NOT THREADSAFE. If we switch to goroutines, swith to atom int.
+var tcounter int
+
 func anchor(node *html.Node) string {
 	if node.Type == html.ElementNode && node.Data == "a" {
 		for _, a := range node.Attr {
@@ -304,9 +342,27 @@ func anchor(node *html.Node) string {
 			}
 		}
 	}
-	return ""
+	tname := fmt.Sprintf("autolink-%d", tcounter)
+	link := autolink(tname)
+	node.Parent.InsertBefore(link, node)
+	tcounter++
+	return tname
 }
 
+//autolink creates an A tag for when one is not present in original docs.
+func autolink(target string) *html.Node {
+	return &html.Node{
+		Type:     html.ElementNode,
+		DataAtom: atom.A,
+		Data:     atom.A.String(),
+		Attr: []html.Attribute{
+			html.Attribute{Key: "class", Val: "dashingAutolink"},
+			html.Attribute{Key: "name", Val: target},
+		},
+	}
+}
+
+// newA creates a TOC anchor.
 func newA(name, etype string) *html.Node {
 	name = url.QueryEscape(name)
 

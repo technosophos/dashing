@@ -1,0 +1,12 @@
+{
+    "name": "BusyBox",
+    "package":"busybox",
+    "index":"BusyBox.html",
+    "selectors": {
+        "dt a": "Command",
+        "title": "Package"
+    },
+    "ignore": [
+        "ABOUT"
+    ]
+}
