@@ -3,8 +3,8 @@
     "package": "dockerfile",
     "index": "index.html",
     "selectors": {
-        "#dockerfile-reference": "Package",
-        "article>h2": "Command"
+        "#dockerfile-reference": "File",
+        "article>h2": "Instruction"
     },
     "ignore": [
         "Usage", "Format", "Environment replacement", "Dockerfile examples", "Dockerfile reference"
