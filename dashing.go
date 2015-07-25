@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	css "github.com/andybalholm/cascadia"
 	"github.com/codegangsta/cli"
 	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -31,14 +33,25 @@ const plist = `<?xml version="1.0" encoding="UTF-8"?>
 	<string>{{.Name}}</string>
 	<key>isDashDocset</key>
 	<true/>
+	<key>DashDocSetFamily</key>
+	<string>dashtoc</string>
+	<key>dashIndexFilePath</key>
+	<string>{{.Index}}</string>
 </dict>
 </plist>
 `
 
 type Dashing struct {
-	Name      string            `json:"name"`
+	// The human-oriented name of the package.
+	Name string `json:"name"`
+	// The location of the index.html file.
+	Index string `json:"index"`
+	// Selectors to match.
 	Selectors map[string]string `json:"selectors"`
-	Ignore    []string          `json:"ignore"`
+	// Entries that should be ignored.
+	Ignore []string `json:"ignore"`
+	// A 32x32 pixel PNG image.
+	Icon32x32 string `json:"icon32x32"`
 }
 
 func main() {
@@ -88,7 +101,8 @@ func create(c *cli.Context) {
 		f = "dashing.json"
 	}
 	conf := Dashing{
-		Name: "Dashing",
+		Name:  "Dashing",
+		Index: "index.html",
 		Selectors: map[string]string{
 			"title": "Package",
 			"dt a":  "Command",
@@ -141,7 +155,10 @@ func build(c *cli.Context) {
 
 	os.MkdirAll(name+".docset/Contents/Resources/Documents/", 0755)
 
-	addPlist(name)
+	addPlist(name, &dashing)
+	if len(dashing.Icon32x32) > 0 {
+		addIcon(dashing.Icon32x32, name+".docset/icon.png")
+	}
 	db, err := createDB(name)
 	if err != nil {
 		fmt.Printf("Failed to create database: %s\n", err)
@@ -152,13 +169,19 @@ func build(c *cli.Context) {
 
 }
 
-func addPlist(name string) {
+func addPlist(name string, config *Dashing) {
 	var file bytes.Buffer
 	t := template.Must(template.New("plist").Parse(plist))
 
+	fancyName := config.Name
+	if len(fancyName) == 0 {
+		fancyName = strings.ToTitle(name)
+	}
+
 	tvars := map[string]string{
 		"Name":      name,
-		"FancyName": strings.ToTitle(name),
+		"FancyName": fancyName,
+		"Index":     config.Index,
 	}
 
 	err := t.Execute(&file, tvars)
@@ -170,7 +193,7 @@ func addPlist(name string) {
 }
 
 func createDB(name string) (*sql.DB, error) {
-	dbname := name + ".docset/Contents/Resources/docset.dxidx"
+	dbname := name + ".docset/Contents/Resources/docSet.dsidx"
 	os.Remove(dbname)
 
 	db, err := sql.Open("sqlite3", dbname)
@@ -180,9 +203,9 @@ func createDB(name string) (*sql.DB, error) {
 	if _, err := db.Exec(`CREATE TABLE searchIndex(id INTEGER PRIMARY KEY, name TEXT, type TEXT, path TEXT)`); err != nil {
 		return db, err
 	}
-	if _, err := db.Exec(`CREATE UNIQUE INDEX anchor ON searchIndex (name, type, path)`); err != nil {
-		return db, err
-	}
+	//if _, err := db.Exec(`CREATE UNIQUE INDEX anchor ON searchIndex (name, type, path)`); err != nil {
+	//return db, err
+	//}
 	return db, nil
 }
 
@@ -195,11 +218,12 @@ func texasRanger(base, name string, dashing Dashing, db *sql.DB) error {
 		//fmt.Printf("Walking %s\n", path)
 		if !info.IsDir() && htmlish(path) {
 			fmt.Printf("%s looks like HTML\n", path)
-			if err := copyFile(path, name+".docset/Contents/Resources/Documents"); err != nil {
-				fmt.Printf("Failed to copy file %s: %s\n", path, err)
-				return err
-			}
-			found, _ := parseHTML(path, dashing)
+			//if err := copyFile(path, name+".docset/Contents/Resources/Documents"); err != nil {
+			//fmt.Printf("Failed to copy file %s: %s\n", path, err)
+			//return err
+			//}
+			dest := name + ".docset/Contents/Resources/Documents"
+			found, _ := parseHTML(path, dest, dashing)
 			for _, ref := range found {
 				fmt.Printf("Match: '%s' is type %s at %s\n", ref.name, ref.etype, ref.href)
 				db.Exec(`INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES (?,?,?)`, ref.name, ref.etype, ref.href)
@@ -210,23 +234,17 @@ func texasRanger(base, name string, dashing Dashing, db *sql.DB) error {
 	return nil
 }
 
-func copyFile(orig, dest string) error {
+func writeHTML(orig, dest string, root *html.Node) error {
 	dir := filepath.Dir(orig)
 	base := filepath.Base(orig)
 	os.MkdirAll(filepath.Join(dest, dir), 0755)
-	in, err := os.Open(orig)
+	out, err := os.Create(filepath.Join(dest, dir, base))
 	if err != nil {
 		return err
 	}
-	out, _ := os.Create(filepath.Join(dest, dir, base))
-	if err != nil {
-		in.Close()
-		return err
-	}
+	defer out.Close()
 
-	io.Copy(out, in)
-	in.Close()
-	return out.Close()
+	return html.Render(out, root)
 }
 
 func htmlish(filename string) bool {
@@ -242,7 +260,7 @@ type reference struct {
 	name, etype, href string
 }
 
-func parseHTML(path string, dashing Dashing) ([]*reference, error) {
+func parseHTML(path, dest string, dashing Dashing) ([]*reference, error) {
 	refs := []*reference{}
 
 	r, err := os.Open(path)
@@ -256,11 +274,14 @@ func parseHTML(path string, dashing Dashing) ([]*reference, error) {
 		m := css.MustCompile(pattern)
 		found := m.MatchAll(top)
 		for _, n := range found {
-			refs = append(refs, &reference{text(n), etype, anchor(n)})
+			name := text(n)
+			// References we want to track.
+			refs = append(refs, &reference{name, etype, path + "#" + anchor(n)})
+			// We need to modify the DOM with a special link to support TOC.
+			n.InsertBefore(newA(name, etype), nil)
 		}
 	}
-
-	return refs, nil
+	return refs, writeHTML(path, dest, top)
 }
 
 func text(node *html.Node) string {
@@ -284,4 +305,36 @@ func anchor(node *html.Node) string {
 		}
 	}
 	return ""
+}
+
+func newA(name, etype string) *html.Node {
+	name = url.QueryEscape(name)
+
+	target := fmt.Sprintf("//apple_ref/cpp/%s/%s", etype, name)
+	return &html.Node{
+		Type:     html.ElementNode,
+		DataAtom: atom.A,
+		Data:     atom.A.String(),
+		Attr: []html.Attribute{
+			html.Attribute{Key: "class", Val: "dashAnchor"},
+			html.Attribute{Key: "name", Val: target},
+		},
+	}
+}
+
+// addIcon adds an icon to the docset.
+func addIcon(src, dest string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	return err
 }

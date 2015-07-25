@@ -2,3 +2,5 @@ _vendor/
 busybox/
 dashing.json
 foo.docset/
+dashing
+busybox.docset/

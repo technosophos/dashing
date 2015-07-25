@@ -3,10 +3,16 @@
 Dashing is a general purpose tool for starting with some HTML
 documentation and generating Dash documentation.
 
-Dash can take any HTML documentation and transform it into the internal
-Dash format... but first you have to be able to map the HTML to Dash
-navigation. This is what Dasher does for you.
+Dashing uses CSS3 selectors to tag an HTML document for import into
+Dash. It generates a complete docset for you.
 
+This supports the following Dash features:
+
+- Index pages
+- Custom icon
+- Table of Contents auto-generation
+
+See:
 https://kapeli.com/docsets
 
 ## INSTALL
@@ -22,17 +28,36 @@ documentation inside.
 $ cd mydocs
 $ dashing create
 # Now you can edit dashing.json. See below.
-$ dashing build -s path/to/HTML/docs mydocs
+$ dashing build mydocs
 ```
 
 You will now have a directory called `mydocs.docset` that contains all
 the documentation you need for Dash.
 
+For more, run `dashing help`.
+
 ## dashing.json Format
+
+The basic Dashing format looks like this:
+
+```json
+{
+    "name": "Dashing",    // Name of the package
+    "index":"index.html", // The default index in your existing docs.
+    "icon32x32": "icon.png", // A 32x32 pixel PNG formatted icon.
+    "selectors": {  // CSS selectors (see below)
+        "dt a": "Command",
+        "title": "Package"
+    },
+    "ignore": [  // A way to say, "Ignore these things"
+        "ABOUT"
+    ]
+}
+```
 
 Dashing uses CSS 3 selectors to map patterns in a document to Dash
 sections. You tell Dashing which patterns in HTML map to which Dash data
-type.
+type. The list of Dash data types can be found here: https://kapeli.com/docsets.
 
 ```
 {
