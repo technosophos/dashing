@@ -2,6 +2,7 @@
     "name": "BusyBox",
     "package":"busybox",
     "index":"BusyBox.html",
+    "icon32x32":"busybox1.png",
     "selectors": {
         "dt a": "Command",
         "title": "Package"

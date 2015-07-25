@@ -1,6 +1,6 @@
 _vendor/
-busybox/
-dashing.json
+busybox/busybox.docset
+dockerfile/dockerfile.docset
 foo.docset/
 dashing
 busybox.docset/
