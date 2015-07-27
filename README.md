@@ -19,7 +19,7 @@ https://kapeli.com/docsets
 
 If you have Go 1.4 or later installed, simply run:
 
-`go get -u gitub.com/technosophos/dashing`
+`go get -u github.com/technosophos/dashing`
 
 Dashing will now be located at `$GOPATH/bin/dashing`.
 
