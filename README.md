@@ -17,7 +17,13 @@ https://kapeli.com/docsets
 
 ## INSTALL
 
-`go install gitub.com/technosophos/dashing`
+If you have Go 1.4 or later installed, simply run:
+
+`go get -u gitub.com/technosophos/dashing`
+
+Dashing will now be located at `$GOPATH/bin/dashing`.
+
+A prebuilt binary is also available as a GitHub release.
 
 ## USAGE
 
