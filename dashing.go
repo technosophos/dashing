@@ -238,23 +238,51 @@ func texasRanger(base, name string, dashing Dashing, db *sql.DB) error {
 		if strings.HasPrefix(path, name+".docset") {
 			return filepath.SkipDir
 		}
-		//fmt.Printf("Walking %s\n", path)
-		if !info.IsDir() && htmlish(path) {
+		if info.IsDir() || ignore(path) {
+			return nil
+		}
+		dest := name + ".docset/Contents/Resources/Documents"
+		if htmlish(path) {
 			fmt.Printf("%s looks like HTML\n", path)
 			//if err := copyFile(path, name+".docset/Contents/Resources/Documents"); err != nil {
 			//fmt.Printf("Failed to copy file %s: %s\n", path, err)
 			//return err
 			//}
-			dest := name + ".docset/Contents/Resources/Documents"
-			found, _ := parseHTML(path, dest, dashing)
+			found, err := parseHTML(path, dest, dashing)
+			if err != nil {
+				fmt.Printf("Error parsing %s: %s\n", path, err)
+				return nil
+			}
 			for _, ref := range found {
 				fmt.Printf("Match: '%s' is type %s at %s\n", ref.name, ref.etype, ref.href)
 				db.Exec(`INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES (?,?,?)`, ref.name, ref.etype, ref.href)
 			}
+		} else {
+			// Or we just copy the file.
+			return copyFile(path, filepath.Join(dest, path))
 		}
 		return nil
 	})
 	return nil
+}
+
+// ignore returns true if a file should be ignored by dashing.
+func ignore(src string) bool {
+
+	// Skip our own config file.
+	if filepath.Base(src) == "dashing.json" {
+		return true
+	}
+
+	// Skip VCS dirs.
+	parts := strings.Split(src, "/")
+	for _, p := range parts {
+		switch p {
+		case ".git", ".svn":
+			return true
+		}
+	}
+	return false
 }
 
 func writeHTML(orig, dest string, root *html.Node) error {
@@ -380,6 +408,11 @@ func newA(name, etype string) *html.Node {
 
 // addIcon adds an icon to the docset.
 func addIcon(src, dest string) error {
+	return copyFile(src, dest)
+}
+
+// copyFile copies a source file to a new destination.
+func copyFile(src, dest string) error {
 	in, err := os.Open(src)
 	if err != nil {
 		return err
