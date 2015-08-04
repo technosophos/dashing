@@ -235,7 +235,9 @@ func createDB(name string) (*sql.DB, error) {
 // texasRanger is... wait for it... a WALKER!
 func texasRanger(base, name string, dashing Dashing, db *sql.DB) error {
 	filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
+		fmt.Printf("Reading %s\n", path)
 		if strings.HasPrefix(path, name+".docset") {
+			fmt.Printf("Ignoring directory %s\n", path)
 			return filepath.SkipDir
 		}
 		if info.IsDir() || ignore(path) {
@@ -259,7 +261,11 @@ func texasRanger(base, name string, dashing Dashing, db *sql.DB) error {
 			}
 		} else {
 			// Or we just copy the file.
-			return copyFile(path, filepath.Join(dest, path))
+			err := copyFile(path, filepath.Join(dest, path))
+			if err != nil {
+				fmt.Printf("Skipping file %s. Error: %s\n", path, err)
+			}
+			return err
 		}
 		return nil
 	})
@@ -413,6 +419,10 @@ func addIcon(src, dest string) error {
 
 // copyFile copies a source file to a new destination.
 func copyFile(src, dest string) error {
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		return err
+	}
+
 	in, err := os.Open(src)
 	if err != nil {
 		return err
