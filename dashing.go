@@ -370,7 +370,7 @@ func text(node *html.Node) string {
 			b.WriteString(text(c))
 		}
 	}
-	return b.String()
+	return strings.TrimSpace(b.String())
 }
 
 // tcounter is used to generate automatic anchors.
