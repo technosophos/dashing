@@ -42,6 +42,9 @@ const plist = `<?xml version="1.0" encoding="UTF-8"?>
 </plist>
 `
 
+// Automatically replaced by linker.
+var version = "dev"
+
 type Dashing struct {
 	// The human-oriented name of the package.
 	Name string `json:"name"`
@@ -99,6 +102,17 @@ func commands() []cli.Command {
 				},
 			},
 		},
+		{
+			Name:   "version",
+			Usage:  "Print version and exit.",
+			Action: func(c *cli.Context) { fmt.Println(version) },
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "config, f",
+					Usage: "The path to the JSON configuration file.",
+				},
+			},
+		},
 	}
 }
 
@@ -133,11 +147,6 @@ func create(c *cli.Context) {
 func build(c *cli.Context) {
 	var dashing Dashing
 
-	//if !c.Args().Present() {
-	//fmt.Printf("Name is required: dashing build NAME\n")
-	//return
-	//}
-	//name := c.Args().First()
 	source := c.String("source")
 	if len(source) == 0 {
 		source = "."
