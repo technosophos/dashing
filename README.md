@@ -75,7 +75,7 @@ Dashing uses CSS 3 selectors to map patterns in a document to Dash
 sections. You tell Dashing which patterns in HTML map to which Dash data
 type. The list of Dash data types can be found here: https://kapeli.com/docsets.
 
-```
+```json
 {
   "selectors": {
     "h1 a": "Package",
@@ -94,7 +94,7 @@ On occasion, you'll have to manually ignore some matched text bits. To
 do that, you can use the `ignores` directive in the JSON file:
 
 
-```
+```json
 {
   "selectors": {
     "h1 a": "Package",
