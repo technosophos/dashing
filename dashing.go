@@ -473,7 +473,7 @@ func autolink(target string) *html.Node {
 // newA creates a TOC anchor.
 func newA(name, etype string) *html.Node {
 	u := &url.URL{Path: name}
-	name = u.String()
+	name = url.QueryEscape(u.String())
 
 	target := fmt.Sprintf("//apple_ref/cpp/%s/%s", etype, name)
 	return &html.Node{
