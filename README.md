@@ -48,18 +48,25 @@ The basic Dashing format looks like this:
 
 ```json
 {
-    "name": "Dashing",    // Name of the package
-    "index":"index.html", // The default index in your existing docs.
-    "icon32x32": "icon.png", // A 32x32 pixel PNG formatted icon.
-    "selectors": {  // CSS selectors (see below)
+    "name": "Dashing",
+    "index":"index.html",
+    "icon32x32": "icon.png",
+    "selectors": {
         "dt a": "Command",
         "title": "Package"
     },
-    "ignore": [  // A way to say, "Ignore these things"
+    "ignore": [
         "ABOUT"
     ]
 }
 ```
+
+- name: Name of the package
+- index: Default index file in the existing docs
+- icon32x32: a 32x32 pixel PNG icon
+- selectors: a map of selectors. There is a simple format and
+  a more advanced format (see below for details).
+- ignore: a list of matches to be ignored (see below)
 
 Dashing uses CSS 3 selectors to map patterns in a document to Dash
 sections. You tell Dashing which patterns in HTML map to which Dash data
@@ -78,6 +85,8 @@ The above will look for `h1 a` combinations, and treat those as package
 definitions, and `h2 class="classdef" a` combinations and treat those as
 Class definitions.
 
+## Ignoring Sections You Don't Care About
+
 On occasion, you'll have to manually ignore some matched text bits. To
 do that, you can use the `ignores` directive in the JSON file:
 
@@ -94,3 +103,46 @@ do that, you can use the `ignores` directive in the JSON file:
 
 The above will ignore anything whose text matches the exact text "DESCRIPTION"
 or "MORE", even if the selectors match.
+
+## Regular Expressions for Substitutions
+
+Instead of using a simple mapping of selector to type, you have the
+option of mapping a selector to a substitution pattern.
+
+The format for this type of `selectors` map looks like this:
+
+```json
+{
+    "name": "BusyBox",
+    "package":"busybox",
+    "index":"BusyBox.html",
+    "icon32x32":"busybox1.png",
+    "selectors": {
+        "dt a": "Command",
+        "title": {
+          "type":"Package",
+          "regexp": " - The Swiss Army Knife of Embedded Linux",
+          "replacement": ""
+        }
+    },
+    "ignore": [
+        "ABOUT"
+    ]
+}
+```
+
+The format of the selector value is:
+
+```json
+"css selector": {
+      "type":"Dash data type",
+      "regexp": "PCRE regular expression (no need to enclose in //)",
+      "replacement": "Replacement text"
+}
+```
+
+Full documentation on the regular expression format can be found here:
+http://golang.org/pkg/regexp/syntax/
+
+Documentation on the format for `replacement` can be found here:
+http://golang.org/pkg/regexp/#Regexp.ReplaceAllString
