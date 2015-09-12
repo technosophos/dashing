@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
+	"regexp"
 	"strings"
 	"text/template"
 
@@ -53,12 +55,23 @@ type Dashing struct {
 	// The location of the index.html file.
 	Index string `json:"index"`
 	// Selectors to match.
-	Selectors map[string]string `json:"selectors"`
+	Selectors map[string]interface{} `json:"selectors"`
+	// Final form of the Selectors field.
+	selectors map[string]*Transform `json:"-"`
 	// Entries that should be ignored.
 	Ignore []string `json:"ignore"`
 	// A 32x32 pixel PNG image.
 	Icon32x32 string `json:"icon32x32"`
 	AllowJS   bool   `json:"allowJS"`
+}
+
+// Transform is a description of what should be done with a selector.
+// When the Selectors map is unmarshaled, the values are turned into
+// Transform structs.
+type Transform struct {
+	Type        string
+	Regexp      *regexp.Regexp
+	Replacement string
 }
 
 var ignoreHash map[string]bool
@@ -67,6 +80,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "dashing"
 	app.Usage = "Generate Dash documentation from HTML files"
+	app.Version = version
 
 	app.Commands = commands()
 
@@ -125,7 +139,7 @@ func create(c *cli.Context) {
 		Name:    "Dashing",
 		Package: "dashing",
 		Index:   "index.html",
-		Selectors: map[string]string{
+		Selectors: map[string]interface{}{
 			"title": "Package",
 			"dt a":  "Command",
 		},
@@ -167,6 +181,10 @@ func build(c *cli.Context) {
 		fmt.Printf("Failed to parse JSON: %s", err)
 		os.Exit(1)
 	}
+	if err := decodeSelectField(&dashing); err != nil {
+		fmt.Printf("Could not understand selector value: %s\n", err)
+		os.Exit(2)
+	}
 
 	name := dashing.Package
 
@@ -186,6 +204,47 @@ func build(c *cli.Context) {
 	}
 	defer db.Close()
 	texasRanger(source, name, dashing, db)
+}
+
+func decodeSelectField(d *Dashing) error {
+	d.selectors = make(map[string]*Transform, len(d.Selectors))
+	for sel, val := range d.Selectors {
+		var trans *Transform
+		rv := reflect.Indirect(reflect.ValueOf(val))
+		if rv.Kind() == reflect.String {
+			trans = &Transform{
+				Type: val.(string),
+			}
+		} else if rv.Kind() == reflect.Map {
+			val := val.(map[string]interface{})
+			var ttype, treg, trep string
+			if t, ok := val["type"]; ok {
+				ttype = t.(string)
+			}
+			if r, ok := val["regexp"]; ok {
+				treg = r.(string)
+			}
+			if r, ok := val["replacement"]; ok {
+				trep = r.(string)
+			}
+			var creg *regexp.Regexp
+			var err error
+			if len(treg) > 0 {
+				if creg, err = regexp.Compile(treg); err != nil {
+					return fmt.Errorf("failed to compile regexp '%s': %s", treg, err)
+				}
+			}
+			trans = &Transform{
+				Type:        ttype,
+				Regexp:      creg,
+				Replacement: trep,
+			}
+		} else {
+			fmt.Errorf("Expected string or map. Kind is %s.", rv.Kind().String())
+		}
+		d.selectors[sel] = trans
+	}
+	return nil
 }
 
 func setIgnore(i []string) {
@@ -336,7 +395,7 @@ func parseHTML(path, dest string, dashing Dashing) ([]*reference, error) {
 	defer r.Close()
 	top, err := html.Parse(r)
 
-	for pattern, etype := range dashing.Selectors {
+	for pattern, sel := range dashing.selectors {
 		m := css.MustCompile(pattern)
 		found := m.MatchAll(top)
 		for _, n := range found {
@@ -347,10 +406,16 @@ func parseHTML(path, dest string, dashing Dashing) ([]*reference, error) {
 				fmt.Printf("Skipping entry for %s (Ignored by dashing JSON)\n", name)
 				continue
 			}
+
+			// If we have a regexp, run it.
+			if sel.Regexp != nil {
+				name = sel.Regexp.ReplaceAllString(name, sel.Replacement)
+			}
+
 			// References we want to track.
-			refs = append(refs, &reference{name, etype, path + "#" + anchor(n)})
+			refs = append(refs, &reference{name, sel.Type, path + "#" + anchor(n)})
 			// We need to modify the DOM with a special link to support TOC.
-			n.Parent.InsertBefore(newA(name, etype), n)
+			n.Parent.InsertBefore(newA(name, sel.Type), n)
 		}
 	}
 	return refs, writeHTML(path, dest, top)

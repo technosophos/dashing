@@ -5,7 +5,11 @@
     "icon32x32":"busybox1.png",
     "selectors": {
         "dt a": "Command",
-        "title": "Package"
+        "title": {
+          "type":"Package",
+          "regexp": " - The Swiss Army Knife of Embedded Linux",
+          "replacement": ""
+        }
     },
     "ignore": [
         "ABOUT"
