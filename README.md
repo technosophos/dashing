@@ -17,6 +17,9 @@ https://kapeli.com/docsets
 
 ## INSTALL
 
+Prebuilt OSX 64-bit binaries are available here:
+https://github.com/technosophos/dashing/releases
+
 If you have Go 1.4 or later installed, simply run:
 
 `go get -u github.com/technosophos/dashing`
