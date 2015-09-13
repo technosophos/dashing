@@ -294,9 +294,9 @@ func createDB(name string) (*sql.DB, error) {
 	if _, err := db.Exec(`CREATE TABLE searchIndex(id INTEGER PRIMARY KEY, name TEXT, type TEXT, path TEXT)`); err != nil {
 		return db, err
 	}
-	//if _, err := db.Exec(`CREATE UNIQUE INDEX anchor ON searchIndex (name, type, path)`); err != nil {
-	//return db, err
-	//}
+	if _, err := db.Exec(`CREATE UNIQUE INDEX anchor ON searchIndex (name, type, path)`); err != nil {
+		return db, err
+	}
 	return db, nil
 }
 
