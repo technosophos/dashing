@@ -39,7 +39,9 @@ const plist = `<?xml version="1.0" encoding="UTF-8"?>
 	<string>dashtoc</string>
 	<key>dashIndexFilePath</key>
 	<string>{{.Index}}</string>
-	<key>isJavaScriptEnabled</key><{{.AllowJS}}/>
+	<key>isJavaScriptEnabled</key><{{.AllowJS}}/>{{if .ExternalURL}}
+	<key>DashDocSetFallbackURL</key>
+	<string>{{.ExternalURL}}</string>{{end}}
 </dict>
 </plist>
 `
@@ -63,6 +65,8 @@ type Dashing struct {
 	// A 32x32 pixel PNG image.
 	Icon32x32 string `json:"icon32x32"`
 	AllowJS   bool   `json:"allowJS"`
+	// External URL for "Open Online Page"
+	ExternalURL string `json: "externalURL"`
 }
 
 // Transform is a description of what should be done with a selector.
@@ -269,10 +273,11 @@ func addPlist(name string, config *Dashing) {
 	}
 
 	tvars := map[string]string{
-		"Name":      name,
-		"FancyName": fancyName,
-		"Index":     config.Index,
-		"AllowJS":   aj,
+		"Name":        name,
+		"FancyName":   fancyName,
+		"Index":       config.Index,
+		"AllowJS":     aj,
+		"ExternalURL": config.ExternalURL,
 	}
 
 	err := t.Execute(&file, tvars)
