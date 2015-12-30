@@ -161,9 +161,12 @@ func create(c *cli.Context) {
 func build(c *cli.Context) {
 	var dashing Dashing
 
+	source_depth := 0
 	source := c.String("source")
 	if len(source) == 0 {
 		source = "."
+	} else {
+		source_depth = len(strings.Split(source, "/"))
 	}
 
 	cf := strings.TrimSpace(c.String("config"))
@@ -203,7 +206,7 @@ func build(c *cli.Context) {
 		return
 	}
 	defer db.Close()
-	texasRanger(source, name, dashing, db)
+	texasRanger(source, source_depth, name, dashing, db)
 }
 
 func decodeSelectField(d *Dashing) error {
@@ -301,7 +304,7 @@ func createDB(name string) (*sql.DB, error) {
 }
 
 // texasRanger is... wait for it... a WALKER!
-func texasRanger(base, name string, dashing Dashing, db *sql.DB) error {
+func texasRanger(base string, base_depth int, name string, dashing Dashing, db *sql.DB) error {
 	filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
 		fmt.Printf("Reading %s\n", path)
 		if strings.HasPrefix(path, name+".docset") {
@@ -318,7 +321,7 @@ func texasRanger(base, name string, dashing Dashing, db *sql.DB) error {
 			//fmt.Printf("Failed to copy file %s: %s\n", path, err)
 			//return err
 			//}
-			found, err := parseHTML(path, dest, dashing)
+			found, err := parseHTML(path, base_depth, dest, dashing)
 			if err != nil {
 				fmt.Printf("Error parsing %s: %s\n", path, err)
 				return nil
@@ -385,7 +388,7 @@ type reference struct {
 	name, etype, href string
 }
 
-func parseHTML(path, dest string, dashing Dashing) ([]*reference, error) {
+func parseHTML(path string, source_depth int, dest string, dashing Dashing) ([]*reference, error) {
 	refs := []*reference{}
 
 	r, err := os.Open(path)
@@ -394,6 +397,25 @@ func parseHTML(path, dest string, dashing Dashing) ([]*reference, error) {
 	}
 	defer r.Close()
 	top, err := html.Parse(r)
+
+	root := css.MustCompile("*[href],*[src]")
+	roots := root.MatchAll(top)
+	for _, node := range roots {
+		for i, attribute := range node.Attr {
+			if "href" == attribute.Key || "src" == attribute.Key {
+				if (strings.HasPrefix(attribute.Val, "/")) {
+					// parts of the path - the file name - the source depth
+					path_depth := len(strings.Split(attribute.Val[1 :], "/")) - 1 - source_depth
+					relative := ""
+					if path_depth > 0 {
+						strings.Repeat("../", path_depth)
+					}
+					node.Attr[i].Val = relative + attribute.Val[1 :];
+				}
+				break;
+			}
+		}
+	}
 
 	for pattern, sel := range dashing.selectors {
 		m := css.MustCompile(pattern)
