@@ -3,6 +3,7 @@
     "package":"busybox",
     "index":"BusyBox.html",
     "icon32x32":"busybox1.png",
+    "externalURL":"https://busybox.net/downloads/",
     "selectors": {
         "dt a": "Command",
         "title": {
