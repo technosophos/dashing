@@ -4,3 +4,4 @@ dockerfile/dockerfile.docset
 foo.docset/
 dashing
 busybox.docset/
+vendor/

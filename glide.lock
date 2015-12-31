@@ -1,0 +1,21 @@
+hash: 4d4fcdb13ac73c0e89b9ec76bc162a53122a9fc6411a242a3d64f6bc34f51135
+updated: 2015-12-31T15:05:32.202043467-07:00
+imports:
+- name: github.com/andybalholm/cascadia
+  version: 3ad29d1ad1c4f2023e355603324348cf1f4b2d48
+- name: github.com/codegangsta/cli
+  version: c31a7975863e7810c92e2e288a9ab074f9a88f29
+- name: github.com/mattn/go-sqlite3
+  version: 5510da399572b4962c020184bb291120c0a412e2
+- name: golang.org/x/crypto
+  version: f18420efc3b4f8e9f3d51f6bd2476e92c46260e9
+- name: golang.org/x/net
+  version: 0cb26f788dd4625d1956c6fd97ffc4c90669d129
+  subpackages:
+  - html
+- name: golang.org/x/text
+  version: cf4986612c83df6c55578ba198316d1684a9a287
+  repo: https://golang.org/x/text
+- name: gopkg.in/yaml.v2
+  version: f7716cbe52baa25d2e9b0d0da546fcf909fc16b4
+devImports: []
