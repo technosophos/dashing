@@ -54,7 +54,7 @@ The basic Dashing format looks like this:
     "name": "Dashing",
     "index":"index.html",
     "icon32x32": "icon.png",
-    "externalURL": "https://github.com/technosophos/dashing"
+    "externalURL": "https://github.com/technosophos/dashing",
     "selectors": {
         "dt a": "Command",
         "title": "Package"
