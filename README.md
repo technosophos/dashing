@@ -54,6 +54,7 @@ The basic Dashing format looks like this:
     "name": "Dashing",
     "index":"index.html",
     "icon32x32": "icon.png",
+    "externalURL": "https://github.com/technosophos/dashing"
     "selectors": {
         "dt a": "Command",
         "title": "Package"
@@ -67,6 +68,7 @@ The basic Dashing format looks like this:
 - name: Name of the package
 - index: Default index file in the existing docs
 - icon32x32: a 32x32 pixel PNG icon
+- externalURL: the base URL of the docs
 - selectors: a map of selectors. There is a simple format and
   a more advanced format (see below for details).
 - ignore: a list of matches to be ignored (see below)
