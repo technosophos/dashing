@@ -74,8 +74,13 @@ type Dashing struct {
 // Transform structs.
 type Transform struct {
 	Type        string
+
+	// Perform a replace operation on the text
 	Regexp      *regexp.Regexp
 	Replacement string
+
+	// Skip files that don't match this path
+	MatchPath		*regexp.Regexp
 }
 
 var ignoreHash map[string]bool
@@ -224,27 +229,33 @@ func decodeSelectField(d *Dashing) error {
 			}
 		} else if rv.Kind() == reflect.Map {
 			val := val.(map[string]interface{})
-			var ttype, treg, trep string
-			if t, ok := val["type"]; ok {
-				ttype = t.(string)
+			var ttype, trep string
+			var creg, cmatchpath *regexp.Regexp
+			var err error
+
+			if r, ok := val["type"]; ok {
+				ttype = r.(string)
 			}
 			if r, ok := val["regexp"]; ok {
-				treg = r.(string)
+				creg, err = regexp.Compile(r.(string))
+				if err != nil {
+					return fmt.Errorf("failed to compile regexp '%s': %s", r.(string), err)
+				}
 			}
 			if r, ok := val["replacement"]; ok {
 				trep = r.(string)
 			}
-			var creg *regexp.Regexp
-			var err error
-			if len(treg) > 0 {
-				if creg, err = regexp.Compile(treg); err != nil {
-					return fmt.Errorf("failed to compile regexp '%s': %s", treg, err)
+			if r, ok := val["matchpath"]; ok {
+				cmatchpath, err = regexp.Compile(r.(string))
+				if err != nil {
+					return fmt.Errorf("failed to compile regexp '%s': %s", r.(string), err)
 				}
 			}
 			trans = &Transform{
 				Type:        ttype,
 				Regexp:      creg,
 				Replacement: trep,
+				MatchPath:   cmatchpath,
 			}
 		} else {
 			fmt.Errorf("Expected string or map. Kind is %s.", rv.Kind().String())
@@ -441,6 +452,11 @@ func parseHTML(path string, source_depth int, dest string, dashing Dashing) ([]*
 	}
 
 	for pattern, sel := range dashing.selectors {
+		// Skip this selector if file path doesn't match
+		if sel.MatchPath != nil && ! sel.MatchPath.MatchString(path) {
+			continue
+		}
+
 		m := css.MustCompile(pattern)
 		found := m.MatchAll(top)
 		for _, n := range found {
