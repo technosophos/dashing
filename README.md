@@ -109,12 +109,12 @@ do that, you can use the `ignores` directive in the JSON file:
 The above will ignore anything whose text matches the exact text "DESCRIPTION"
 or "MORE", even if the selectors match.
 
-## Regular Expressions for Substitutions
+## Other Mappers/Filters on Selectors
 
 Instead of using a simple mapping of selector to type, you have the
-option of mapping a selector to a substitution pattern.
+option to map/filter the selected results.
 
-The format for this type of `selectors` map looks like this:
+The format for this extended type of `selectors` looks like this:
 
 ```json
 {
@@ -127,7 +127,8 @@ The format for this type of `selectors` map looks like this:
         "title": {
           "type":"Package",
           "regexp": " - The Swiss Army Knife of Embedded Linux",
-          "replacement": ""
+          "replacement": "",
+          "matchpath": "doc/.*\\.html"
         }
     },
     "ignore": [
@@ -142,7 +143,8 @@ The format of the selector value is:
 "css selector": {
       "type":"Dash data type",
       "regexp": "PCRE regular expression (no need to enclose in //)",
-      "replacement": "Replacement text"
+      "replacement": "Replacement text for each match of 'regexp'",
+      "matchpath": "Only files matching this regular expression will be parsed. Will match all files if not set."
 }
 ```
 
