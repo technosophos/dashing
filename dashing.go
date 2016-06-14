@@ -128,7 +128,7 @@ func commands() []cli.Command {
 		{
 			Name:   "version",
 			Usage:  "Print version and exit.",
-			Action: func(c *cli.Context) { fmt.Println(version) },
+			Action: func(c *cli.Context) error { fmt.Println(version);return nil },
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "config, f",
@@ -139,7 +139,7 @@ func commands() []cli.Command {
 	}
 }
 
-func create(c *cli.Context) {
+func create(c *cli.Context) error {
 	f := c.String("config")
 	if len(f) == 0 {
 		f = "dashing.json"
@@ -164,10 +164,10 @@ func create(c *cli.Context) {
 		os.Exit(1)
 	}
 	fmt.Printf("You may now edit %s", f)
-
+	return nil
 }
 
-func build(c *cli.Context) {
+func build(c *cli.Context) error {
 	var dashing Dashing
 
 	source_depth := 0
@@ -212,10 +212,11 @@ func build(c *cli.Context) {
 	db, err := createDB(name)
 	if err != nil {
 		fmt.Printf("Failed to create database: %s\n", err)
-		return
+		return nil
 	}
 	defer db.Close()
 	texasRanger(source, source_depth, name, dashing, db)
+	return nil
 }
 
 func decodeSelectField(d *Dashing) error {
@@ -259,6 +260,7 @@ func decodeSelectField(d *Dashing) error {
 			}
 		} else {
 			fmt.Errorf("Expected string or map. Kind is %s.", rv.Kind().String())
+			return nil
 		}
 		d.selectors[sel] = trans
 	}
