@@ -77,6 +77,7 @@ type Transform struct {
 	Attribute   string         // Use the value of this attribute as basis
 	Regexp      *regexp.Regexp // Perform a replace operation on the text
 	Replacement string
+	RequireText *regexp.Regexp // Require text matches the given regexp
 	MatchPath   *regexp.Regexp // Skip files that don't match this path
 }
 
@@ -227,7 +228,7 @@ func decodeSelectField(d *Dashing) error {
 		} else if rv.Kind() == reflect.Map {
 			val := val.(map[string]interface{})
 			var ttype, trep, attr string
-			var creg, cmatchpath *regexp.Regexp
+			var creg, cmatchpath, requireText *regexp.Regexp
 			var err error
 
 			if r, ok := val["attr"]; ok {
@@ -246,6 +247,12 @@ func decodeSelectField(d *Dashing) error {
 			if r, ok := val["replacement"]; ok {
 				trep = r.(string)
 			}
+			if r, ok := val["requiretext"]; ok {
+				requireText, err = regexp.Compile(r.(string))
+				if err != nil {
+					return fmt.Errorf("failed to compile regexp '%s': %s", r.(string), err)
+				}
+			}
 			if r, ok := val["matchpath"]; ok {
 				cmatchpath, err = regexp.Compile(r.(string))
 				if err != nil {
@@ -257,6 +264,7 @@ func decodeSelectField(d *Dashing) error {
 				Attribute:   attr,
 				Regexp:      creg,
 				Replacement: trep,
+				RequireText: requireText,
 				MatchPath:   cmatchpath,
 			}
 		} else {
@@ -462,11 +470,16 @@ func parseHTML(path string, source_depth int, dest string, dashing Dashing) ([]*
 		m := css.MustCompile(pattern)
 		found := m.MatchAll(top)
 		for _, n := range found {
+			textString := text(n)
+			if sel.RequireText != nil && !sel.RequireText.MatchString(textString) {
+				fmt.Printf("Skipping entry for '%s' (Text not matching given regexp '%v')\n", textString, sel.RequireText)
+				continue
+			}
 			var name string
 			if len(sel.Attribute) != 0 {
 				name = attr(n, sel.Attribute)
 			} else {
-				name = text(n)
+				name = textString
 			}
 
 			// Skip things explicitly ignored.

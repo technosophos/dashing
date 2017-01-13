@@ -141,6 +141,7 @@ The format of the selector value is:
 
 ```json
 "css selector": {
+      "requiretext": "require that the text matches a regexp. If not, this node is not considered as selected",
       "type": "Dash data type",
       "attr": "Use the value of the specified attribute instead of html node text as the basis for transformation",
       "regexp": "PCRE regular expression (no need to enclose in //)",
