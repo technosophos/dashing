@@ -141,7 +141,8 @@ The format of the selector value is:
 
 ```json
 "css selector": {
-      "type":"Dash data type",
+      "type": "Dash data type",
+      "attr": "Use the value of the specified attribute instead of html node text as the basis for transformation",
       "regexp": "PCRE regular expression (no need to enclose in //)",
       "replacement": "Replacement text for each match of 'regexp'",
       "matchpath": "Only files matching this regular expression will be parsed. Will match all files if not set."

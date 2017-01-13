@@ -74,13 +74,10 @@ type Dashing struct {
 // Transform structs.
 type Transform struct {
 	Type        string
-
-	// Perform a replace operation on the text
-	Regexp      *regexp.Regexp
+	Attribute   string         // Use the value of this attribute as basis
+	Regexp      *regexp.Regexp // Perform a replace operation on the text
 	Replacement string
-
-	// Skip files that don't match this path
-	MatchPath		*regexp.Regexp
+	MatchPath   *regexp.Regexp // Skip files that don't match this path
 }
 
 var ignoreHash map[string]bool
@@ -229,9 +226,13 @@ func decodeSelectField(d *Dashing) error {
 			}
 		} else if rv.Kind() == reflect.Map {
 			val := val.(map[string]interface{})
-			var ttype, trep string
+			var ttype, trep, attr string
 			var creg, cmatchpath *regexp.Regexp
 			var err error
+
+			if r, ok := val["attr"]; ok {
+				attr = r.(string)
+			}
 
 			if r, ok := val["type"]; ok {
 				ttype = r.(string)
@@ -253,6 +254,7 @@ func decodeSelectField(d *Dashing) error {
 			}
 			trans = &Transform{
 				Type:        ttype,
+				Attribute:   attr,
 				Regexp:      creg,
 				Replacement: trep,
 				MatchPath:   cmatchpath,
@@ -437,30 +439,35 @@ func parseHTML(path string, source_depth int, dest string, dashing Dashing) ([]*
 	for _, node := range roots {
 		for i, attribute := range node.Attr {
 			if "href" == attribute.Key || "src" == attribute.Key {
-				if (strings.HasPrefix(attribute.Val, "/")) {
+				if strings.HasPrefix(attribute.Val, "/") {
 					// parts of the path - the file name - the source depth
-					path_depth := len(strings.Split(attribute.Val[1 :], "/")) - 1 - source_depth
+					path_depth := len(strings.Split(attribute.Val[1:], "/")) - 1 - source_depth
 					relative := ""
 					if path_depth > 0 {
 						strings.Repeat("../", path_depth)
 					}
-					node.Attr[i].Val = relative + attribute.Val[1 :];
+					node.Attr[i].Val = relative + attribute.Val[1:]
 				}
-				break;
+				break
 			}
 		}
 	}
 
 	for pattern, sel := range dashing.selectors {
 		// Skip this selector if file path doesn't match
-		if sel.MatchPath != nil && ! sel.MatchPath.MatchString(path) {
+		if sel.MatchPath != nil && !sel.MatchPath.MatchString(path) {
 			continue
 		}
 
 		m := css.MustCompile(pattern)
 		found := m.MatchAll(top)
 		for _, n := range found {
-			name := text(n)
+			var name string
+			if len(sel.Attribute) != 0 {
+				name = attr(n, sel.Attribute)
+			} else {
+				name = text(n)
+			}
 
 			// Skip things explicitly ignored.
 			if ignored(name) {
@@ -497,6 +504,15 @@ func text(node *html.Node) string {
 		}
 	}
 	return strings.TrimSpace(b.String())
+}
+
+func attr(node *html.Node, key string) string {
+	for _, a := range node.Attr {
+		if a.Key == key {
+			return a.Val
+		}
+	}
+	return ""
 }
 
 // tcounter is used to generate automatic anchors.
@@ -572,7 +588,6 @@ func copyFile(src, dest string) error {
 	_, err = io.Copy(out, in)
 	return err
 }
-
 
 var point_to_entity = map[rune]string{
 	8704: "&forall;",
