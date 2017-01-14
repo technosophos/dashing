@@ -150,6 +150,24 @@ The format of the selector value is:
 }
 ```
 
+And you can have multiple transformations specified for the same css selector:
+
+```json
+"css selector": [
+    {
+        "requiretext": "...",
+        "type": "..."
+    },
+    {
+        "requiretext": "...",
+        "type": "..."
+    }
+]
+```
+
+The above allows you to fine tweak nodes selected via css selectors using
+their text contents.
+
 Full documentation on the regular expression format can be found here:
 http://golang.org/pkg/regexp/syntax/
 
