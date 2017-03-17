@@ -59,7 +59,7 @@ type Dashing struct {
 	// Selectors to match.
 	Selectors map[string]interface{} `json:"selectors"`
 	// Final form of the Selectors field.
-	selectors map[string]*Transform `json:"-"`
+	selectors map[string][]*Transform `json:"-"`
 	// Entries that should be ignored.
 	Ignore []string `json:"ignore"`
 	// A 32x32 pixel PNG image.
@@ -74,13 +74,11 @@ type Dashing struct {
 // Transform structs.
 type Transform struct {
 	Type        string
-
-	// Perform a replace operation on the text
-	Regexp      *regexp.Regexp
+	Attribute   string         // Use the value of this attribute as basis
+	Regexp      *regexp.Regexp // Perform a replace operation on the text
 	Replacement string
-
-	// Skip files that don't match this path
-	MatchPath		*regexp.Regexp
+	RequireText *regexp.Regexp // Require text matches the given regexp
+	MatchPath   *regexp.Regexp // Skip files that don't match this path
 }
 
 var ignoreHash map[string]bool
@@ -218,49 +216,77 @@ func build(c *cli.Context) {
 	texasRanger(source, source_depth, name, dashing, db)
 }
 
+func decodeSingleTransform(val map[string]interface{}) (*Transform, error) {
+	var ttype, trep, attr string
+	var creg, cmatchpath, requireText *regexp.Regexp
+	var err error
+
+	if r, ok := val["attr"]; ok {
+		attr = r.(string)
+	}
+
+	if r, ok := val["type"]; ok {
+		ttype = r.(string)
+	}
+	if r, ok := val["regexp"]; ok {
+		creg, err = regexp.Compile(r.(string))
+		if err != nil {
+			return nil, fmt.Errorf("failed to compile regexp '%s': %s", r.(string), err)
+		}
+	}
+	if r, ok := val["replacement"]; ok {
+		trep = r.(string)
+	}
+	if r, ok := val["requiretext"]; ok {
+		requireText, err = regexp.Compile(r.(string))
+		if err != nil {
+			return nil, fmt.Errorf("failed to compile regexp '%s': %s", r.(string), err)
+		}
+	}
+	if r, ok := val["matchpath"]; ok {
+		cmatchpath, err = regexp.Compile(r.(string))
+		if err != nil {
+			return nil, fmt.Errorf("failed to compile regexp '%s': %s", r.(string), err)
+		}
+	}
+	return &Transform{
+		Type:        ttype,
+		Attribute:   attr,
+		Regexp:      creg,
+		Replacement: trep,
+		RequireText: requireText,
+		MatchPath:   cmatchpath,
+	}, nil
+}
+
 func decodeSelectField(d *Dashing) error {
-	d.selectors = make(map[string]*Transform, len(d.Selectors))
+	d.selectors = make(map[string][]*Transform, len(d.Selectors))
 	for sel, val := range d.Selectors {
 		var trans *Transform
+		var err error
 		rv := reflect.Indirect(reflect.ValueOf(val))
 		if rv.Kind() == reflect.String {
 			trans = &Transform{
 				Type: val.(string),
 			}
+			d.selectors[sel] = append(d.selectors[sel], trans)
 		} else if rv.Kind() == reflect.Map {
 			val := val.(map[string]interface{})
-			var ttype, trep string
-			var creg, cmatchpath *regexp.Regexp
-			var err error
-
-			if r, ok := val["type"]; ok {
-				ttype = r.(string)
+			if trans, err = decodeSingleTransform(val); err != nil {
+				return err
 			}
-			if r, ok := val["regexp"]; ok {
-				creg, err = regexp.Compile(r.(string))
-				if err != nil {
-					return fmt.Errorf("failed to compile regexp '%s': %s", r.(string), err)
+			d.selectors[sel] = append(d.selectors[sel], trans)
+		} else if rv.Kind() == reflect.Slice {
+			for i := 0; i < rv.Len(); i++ {
+				element := rv.Index(i).Interface().(map[string]interface{})
+				if trans, err = decodeSingleTransform(element); err != nil {
+					return err
 				}
-			}
-			if r, ok := val["replacement"]; ok {
-				trep = r.(string)
-			}
-			if r, ok := val["matchpath"]; ok {
-				cmatchpath, err = regexp.Compile(r.(string))
-				if err != nil {
-					return fmt.Errorf("failed to compile regexp '%s': %s", r.(string), err)
-				}
-			}
-			trans = &Transform{
-				Type:        ttype,
-				Regexp:      creg,
-				Replacement: trep,
-				MatchPath:   cmatchpath,
+				d.selectors[sel] = append(d.selectors[sel], trans)
 			}
 		} else {
-			fmt.Errorf("Expected string or map. Kind is %s.", rv.Kind().String())
+			return fmt.Errorf("Expected string or map. Kind is %s.", rv.Kind().String())
 		}
-		d.selectors[sel] = trans
 	}
 	return nil
 }
@@ -437,46 +463,58 @@ func parseHTML(path string, source_depth int, dest string, dashing Dashing) ([]*
 	for _, node := range roots {
 		for i, attribute := range node.Attr {
 			if "href" == attribute.Key || "src" == attribute.Key {
-				if (strings.HasPrefix(attribute.Val, "/")) {
+				if strings.HasPrefix(attribute.Val, "/") {
 					// parts of the path - the file name - the source depth
-					path_depth := len(strings.Split(attribute.Val[1 :], "/")) - 1 - source_depth
+					path_depth := len(strings.Split(attribute.Val[1:], "/")) - 1 - source_depth
 					relative := ""
 					if path_depth > 0 {
 						strings.Repeat("../", path_depth)
 					}
-					node.Attr[i].Val = relative + attribute.Val[1 :];
+					node.Attr[i].Val = relative + attribute.Val[1:]
 				}
-				break;
+				break
 			}
 		}
 	}
 
-	for pattern, sel := range dashing.selectors {
-		// Skip this selector if file path doesn't match
-		if sel.MatchPath != nil && ! sel.MatchPath.MatchString(path) {
-			continue
-		}
-
-		m := css.MustCompile(pattern)
-		found := m.MatchAll(top)
-		for _, n := range found {
-			name := text(n)
-
-			// Skip things explicitly ignored.
-			if ignored(name) {
-				fmt.Printf("Skipping entry for %s (Ignored by dashing JSON)\n", name)
+	for pattern, sels := range dashing.selectors {
+		for _, sel := range sels {
+			// Skip this selector if file path doesn't match
+			if sel.MatchPath != nil && !sel.MatchPath.MatchString(path) {
 				continue
 			}
 
-			// If we have a regexp, run it.
-			if sel.Regexp != nil {
-				name = sel.Regexp.ReplaceAllString(name, sel.Replacement)
-			}
+			m := css.MustCompile(pattern)
+			found := m.MatchAll(top)
+			for _, n := range found {
+				textString := text(n)
+				if sel.RequireText != nil && !sel.RequireText.MatchString(textString) {
+					fmt.Printf("Skipping entry for '%s' (Text not matching given regexp '%v')\n", textString, sel.RequireText)
+					continue
+				}
+				var name string
+				if len(sel.Attribute) != 0 {
+					name = attr(n, sel.Attribute)
+				} else {
+					name = textString
+				}
 
-			// References we want to track.
-			refs = append(refs, &reference{name, sel.Type, path + "#" + anchor(n)})
-			// We need to modify the DOM with a special link to support TOC.
-			n.Parent.InsertBefore(newA(name, sel.Type), n)
+				// Skip things explicitly ignored.
+				if ignored(name) {
+					fmt.Printf("Skipping entry for %s (Ignored by dashing JSON)\n", name)
+					continue
+				}
+
+				// If we have a regexp, run it.
+				if sel.Regexp != nil {
+					name = sel.Regexp.ReplaceAllString(name, sel.Replacement)
+				}
+
+				// References we want to track.
+				refs = append(refs, &reference{name, sel.Type, path + "#" + anchor(n)})
+				// We need to modify the DOM with a special link to support TOC.
+				n.Parent.InsertBefore(newA(name, sel.Type), n)
+			}
 		}
 	}
 	return refs, writeHTML(path, dest, top)
@@ -497,6 +535,15 @@ func text(node *html.Node) string {
 		}
 	}
 	return strings.TrimSpace(b.String())
+}
+
+func attr(node *html.Node, key string) string {
+	for _, a := range node.Attr {
+		if a.Key == key {
+			return a.Val
+		}
+	}
+	return ""
 }
 
 // tcounter is used to generate automatic anchors.
@@ -572,7 +619,6 @@ func copyFile(src, dest string) error {
 	_, err = io.Copy(out, in)
 	return err
 }
-
 
 var point_to_entity = map[rune]string{
 	8704: "&forall;",

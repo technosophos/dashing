@@ -141,12 +141,32 @@ The format of the selector value is:
 
 ```json
 "css selector": {
-      "type":"Dash data type",
+      "requiretext": "require that the text matches a regexp. If not, this node is not considered as selected",
+      "type": "Dash data type",
+      "attr": "Use the value of the specified attribute instead of html node text as the basis for transformation",
       "regexp": "PCRE regular expression (no need to enclose in //)",
       "replacement": "Replacement text for each match of 'regexp'",
       "matchpath": "Only files matching this regular expression will be parsed. Will match all files if not set."
 }
 ```
+
+And you can have multiple transformations specified for the same css selector:
+
+```json
+"css selector": [
+    {
+        "requiretext": "...",
+        "type": "..."
+    },
+    {
+        "requiretext": "...",
+        "type": "..."
+    }
+]
+```
+
+The above allows you to fine tweak nodes selected via css selectors using
+their text contents.
 
 Full documentation on the regular expression format can be found here:
 http://golang.org/pkg/regexp/syntax/
