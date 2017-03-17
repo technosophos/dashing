@@ -1,4 +1,6 @@
 # Dashing: Generate Dash documentation from HTML
+[![Stability: Maintenance](https://masterminds.github.io/stability/maintenance.svg)](https://masterminds.github.io/stability/maintenance.html)
+
 
 Dashing is a general purpose tool for starting with some HTML
 documentation and generating Dash documentation.
