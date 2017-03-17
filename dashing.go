@@ -161,7 +161,7 @@ func create(c *cli.Context) {
 		fmt.Errorf("Could not initialize JSON file: %s", err)
 		os.Exit(1)
 	}
-	fmt.Printf("You may now edit %s", f)
+	fmt.Printf("You may now edit %s\n", f)
 
 }
 
