@@ -77,7 +77,7 @@ The basic Dashing format looks like this:
 
 Dashing uses CSS 3 selectors to map patterns in a document to Dash
 sections. You tell Dashing which patterns in HTML map to which Dash data
-type. The list of Dash data types can be found here: https://kapeli.com/docsets.
+type. The list of Dash data types can be found here: https://kapeli.com/docsets#supportedentrytypes.
 
 ```json
 {
