@@ -19,12 +19,22 @@ https://kapeli.com/docsets
 
 ## INSTALL
 
-Prebuilt OSX 64-bit binaries are available here:
+There are several ways to install this program.
+
+For most people, the easiest way is through [Homebrew:](https://brew.sh/)
+
+```
+brew install dashing
+```
+
+Prebuilt OSX 64-bit binaries are also available here:
 https://github.com/technosophos/dashing/releases
 
 If you have Go 1.4 or later installed, simply run:
 
-`go get -u github.com/technosophos/dashing`
+```
+go get -u github.com/technosophos/dashing
+```
 
 Dashing will now be located at `$GOPATH/bin/dashing`.
 
