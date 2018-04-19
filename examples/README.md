@@ -25,7 +25,7 @@ This example illustrates the usage of `ignore` fields.
 
 ```
 $ cd dockderfile
-$ wget https://docs.docker.com/reference/builder/`
+$ wget https://docs.docker.com/engine/reference/builder/
 $ dashing build
 ```
 
