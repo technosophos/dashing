@@ -112,6 +112,21 @@ func commands() []cli.Command {
 			},
 		},
 		{
+			Name:   "update",
+			Usage:  "update a doc set",
+			Action: update,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "source, s",
+					Usage: "The path to the HTML files this will ingest. (Default: ./ )",
+				},
+				cli.StringFlag{
+					Name:  "config, f",
+					Usage: "The path to the JSON configuration file.",
+				},
+			},
+		},
+		{
 			Name:      "init",
 			ShortName: "create",
 			Usage:     "create a new template for building documentation",
@@ -208,6 +223,57 @@ func build(c *cli.Context) {
 		addIcon(dashing.Icon32x32, name+".docset/icon.png")
 	}
 	db, err := createDB(name)
+	if err != nil {
+		fmt.Printf("Failed to create database: %s\n", err)
+		return
+	}
+	defer db.Close()
+	texasRanger(source, source_depth, name, dashing, db)
+}
+
+func update(c *cli.Context) {
+	var dashing Dashing
+
+	source_depth := 0
+	source := c.String("source")
+	if len(source) == 0 {
+		source = "."
+	} else {
+		source_depth = len(strings.Split(source, "/"))
+	}
+
+	cf := strings.TrimSpace(c.String("config"))
+	if len(cf) == 0 {
+		cf = "./dashing.json"
+	}
+
+	conf, err := ioutil.ReadFile(cf)
+	if err != nil {
+		fmt.Printf("Failed to open configuration file '%s': %s (Run `dashing init`?)\n", cf, err)
+		os.Exit(1)
+	}
+
+	if err := json.Unmarshal(conf, &dashing); err != nil {
+		fmt.Printf("Failed to parse JSON: %s", err)
+		os.Exit(1)
+	}
+	if err := decodeSelectField(&dashing); err != nil {
+		fmt.Printf("Could not understand selector value: %s\n", err)
+		os.Exit(2)
+	}
+
+	name := dashing.Package
+
+	fmt.Printf("Building %s from files in '%s'.\n", name, source)
+
+	os.MkdirAll(name+".docset/Contents/Resources/Documents/", 0755)
+
+	setIgnore(dashing.Ignore)
+	addPlist(name, &dashing)
+	if len(dashing.Icon32x32) > 0 {
+		addIcon(dashing.Icon32x32, name+".docset/icon.png")
+	}
+	db, err := createOrUpdateDB(name)
 	if err != nil {
 		fmt.Printf("Failed to create database: %s\n", err)
 		return
@@ -343,6 +409,16 @@ func createDB(name string) (*sql.DB, error) {
 		return db, err
 	}
 	return db, nil
+}
+
+func createOrUpdateDB(name string) (*sql.DB, error) {
+	dbname := name + ".docset/Contents/Resources/docSet.dsidx"
+
+	if _, err := os.Stat(filename); os.IsExist(err) {
+		return sql.Open("sqlite3", dbname)
+	}
+
+	return createDB(name)
 }
 
 // texasRanger is... wait for it... a WALKER!
