@@ -222,7 +222,7 @@ func build(c *cli.Context) {
 	if len(dashing.Icon32x32) > 0 {
 		addIcon(dashing.Icon32x32, name+".docset/icon.png")
 	}
-	db, err := createDB(name, true)
+	db, err := initDB(name, true)
 	if err != nil {
 		fmt.Printf("Failed to create database: %s\n", err)
 		return
@@ -273,7 +273,7 @@ func update(c *cli.Context) {
 	if len(dashing.Icon32x32) > 0 {
 		addIcon(dashing.Icon32x32, name+".docset/icon.png")
 	}
-	db, err := createDB(name, false)
+	db, err := initDB(name, false)
 	if err != nil {
 		fmt.Printf("Failed to create database: %s\n", err)
 		return
@@ -394,7 +394,7 @@ func addPlist(name string, config *Dashing) {
 	ioutil.WriteFile(name+".docset/Contents/Info.plist", file.Bytes(), 0755)
 }
 
-func createDB(name string, fresh bool) (*sql.DB, error) {
+func initDB(name string, fresh bool) (*sql.DB, error) {
 	dbname := name + ".docset/Contents/Resources/docSet.dsidx"
 
 	if fresh {
