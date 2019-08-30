@@ -70,6 +70,7 @@ The basic Dashing format looks like this:
 ```json
 {
     "name": "Dashing",
+    "package": "dashing",
     "index":"index.html",
     "icon32x32": "icon.png",
     "externalURL": "https://github.com/technosophos/dashing",
@@ -83,7 +84,8 @@ The basic Dashing format looks like this:
 }
 ```
 
-- name: Name of the package
+- name: Human-oriented name of the package
+- package: Computer-oriented name of the package (one word recommended)
 - index: Default index file in the existing docs
 - icon32x32: a 32x32 pixel PNG icon
 - externalURL: the base URL of the docs
