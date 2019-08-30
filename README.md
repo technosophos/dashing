@@ -27,6 +27,12 @@ For most people, the easiest way is through [Homebrew:](https://brew.sh/)
 brew install dashing
 ```
 
+Or [MacPorts:](https://www.macports.org/)
+
+```
+sudo port install dashing
+```
+
 Prebuilt OSX 64-bit binaries are also available here:
 https://github.com/technosophos/dashing/releases
 
