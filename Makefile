@@ -1,4 +1,4 @@
-VERSION := $(shell git describe --tags)
+VERSION ?= $(shell git describe --tags)
 
 build:
 	go build -o dashing -ldflags "-X main.version=${VERSION}" dashing.go
