@@ -94,18 +94,18 @@ func main() {
 	app.Run(os.Args)
 }
 
-func commands() []cli.Command {
-	return []cli.Command{
+func commands() []*cli.Command {
+	return []*cli.Command{
 		{
 			Name:   "build",
 			Usage:  "build a doc set",
 			Action: build,
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "source, s",
 					Usage: "The path to the HTML files this will ingest. (Default: ./ )",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "config, f",
 					Usage: "The path to the JSON configuration file.",
 				},
@@ -116,11 +116,11 @@ func commands() []cli.Command {
 			Usage:  "update a doc set",
 			Action: update,
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "source, s",
 					Usage: "The path to the HTML files this will ingest. (Default: ./ )",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "config, f",
 					Usage: "The path to the JSON configuration file.",
 				},
@@ -128,11 +128,11 @@ func commands() []cli.Command {
 		},
 		{
 			Name:      "init",
-			ShortName: "create",
+			Aliases:   []string{"create"},
 			Usage:     "create a new template for building documentation",
 			Action:    create,
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "config, f",
 					Usage: "The path to the JSON configuration file.",
 				},
@@ -141,9 +141,12 @@ func commands() []cli.Command {
 		{
 			Name:   "version",
 			Usage:  "Print version and exit.",
-			Action: func(c *cli.Context) { fmt.Println(version) },
+			Action: func(c *cli.Context) error {
+				fmt.Println(version)
+				return nil
+		        },
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "config, f",
 					Usage: "The path to the JSON configuration file.",
 				},
@@ -152,7 +155,7 @@ func commands() []cli.Command {
 	}
 }
 
-func create(c *cli.Context) {
+func create(c *cli.Context) error {
 	f := c.String("config")
 	if len(f) == 0 {
 		f = "dashing.json"
@@ -177,10 +180,10 @@ func create(c *cli.Context) {
 		os.Exit(1)
 	}
 	fmt.Printf("You may now edit %s\n", f)
-
+	return nil
 }
 
-func build(c *cli.Context) {
+func build(c *cli.Context) error {
 	var dashing Dashing
 
 	source_depth := 0
@@ -225,13 +228,14 @@ func build(c *cli.Context) {
 	db, err := initDB(name, true)
 	if err != nil {
 		fmt.Printf("Failed to create database: %s\n", err)
-		return
+		return nil
 	}
 	defer db.Close()
 	texasRanger(source, source_depth, name, dashing, db)
+	return nil
 }
 
-func update(c *cli.Context) {
+func update(c *cli.Context) error {
 	var dashing Dashing
 
 	source_depth := 0
@@ -276,10 +280,11 @@ func update(c *cli.Context) {
 	db, err := initDB(name, false)
 	if err != nil {
 		fmt.Printf("Failed to create database: %s\n", err)
-		return
+		return nil
 	}
 	defer db.Close()
 	texasRanger(source, source_depth, name, dashing, db)
+	return nil
 }
 
 func decodeSingleTransform(val map[string]interface{}) (*Transform, error) {
