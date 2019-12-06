@@ -16,7 +16,7 @@ import (
 	"text/template"
 
 	css "github.com/andybalholm/cascadia"
-	"github.com/codegangsta/cli"
+	"github.com/urfave/cli"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 
