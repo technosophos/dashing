@@ -1,9 +1,0 @@
-package: github.com/technosophos/dashing
-import:
-  - package: github.com/codegangsta/cli
-  - package: golang.org/x/net
-    subpackages:
-      - html
-  - package: github.com/mattn/go-sqlite3
-  - package: github.com/andybalholm/cascadia
-  - package: gopkg.in/yaml.v2
