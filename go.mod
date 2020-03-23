@@ -1,6 +1,6 @@
 module github.com/technosophos/dashing
 
-go 1.13
+go 1.14
 
 require (
 	github.com/andybalholm/cascadia v1.1.1-0.20191115165331-903109d295d5
