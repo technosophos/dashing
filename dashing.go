@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"database/sql"
 	"encoding/json"
@@ -82,6 +83,8 @@ type Transform struct {
 }
 
 var ignoreHash map[string]bool
+var regexpCache map[string]*regexp.Regexp = make(map[string]*regexp.Regexp)
+var cssSelectorCache map[string]css.Selector = make(map[string]css.Selector)
 
 func main() {
 	app := cli.NewApp()
@@ -127,10 +130,10 @@ func commands() []*cli.Command {
 			},
 		},
 		{
-			Name:      "init",
-			Aliases:   []string{"create"},
-			Usage:     "create a new template for building documentation",
-			Action:    create,
+			Name:    "init",
+			Aliases: []string{"create"},
+			Usage:   "create a new template for building documentation",
+			Action:  create,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:  "config, f",
@@ -139,12 +142,12 @@ func commands() []*cli.Command {
 			},
 		},
 		{
-			Name:   "version",
-			Usage:  "Print version and exit.",
+			Name:  "version",
+			Usage: "Print version and exit.",
 			Action: func(c *cli.Context) error {
 				fmt.Println(version)
 				return nil
-		        },
+			},
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:  "config, f",
@@ -232,6 +235,10 @@ func build(c *cli.Context) error {
 	}
 	defer db.Close()
 	texasRanger(source, source_depth, name, dashing, db)
+	// create index after all data is inserted for better performance
+	if _, err := db.Exec(`CREATE UNIQUE INDEX anchor ON searchIndex (name, type, path)`); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -300,7 +307,7 @@ func decodeSingleTransform(val map[string]interface{}) (*Transform, error) {
 		ttype = r.(string)
 	}
 	if r, ok := val["regexp"]; ok {
-		creg, err = regexp.Compile(r.(string))
+		creg, err = compileRegexpAndCache(r.(string))
 		if err != nil {
 			return nil, fmt.Errorf("failed to compile regexp '%s': %s", r.(string), err)
 		}
@@ -309,13 +316,13 @@ func decodeSingleTransform(val map[string]interface{}) (*Transform, error) {
 		trep = r.(string)
 	}
 	if r, ok := val["requiretext"]; ok {
-		requireText, err = regexp.Compile(r.(string))
+		requireText, err = compileRegexpAndCache(r.(string))
 		if err != nil {
 			return nil, fmt.Errorf("failed to compile regexp '%s': %s", r.(string), err)
 		}
 	}
 	if r, ok := val["matchpath"]; ok {
-		cmatchpath, err = regexp.Compile(r.(string))
+		cmatchpath, err = compileRegexpAndCache(r.(string))
 		if err != nil {
 			return nil, fmt.Errorf("failed to compile regexp '%s': %s", r.(string), err)
 		}
@@ -328,6 +335,28 @@ func decodeSingleTransform(val map[string]interface{}) (*Transform, error) {
 		RequireText: requireText,
 		MatchPath:   cmatchpath,
 	}, nil
+}
+
+func compileRegexpAndCache(r string) (*regexp.Regexp, error) {
+	cachedRegexp, ok := regexpCache[r]
+	if ok {
+		return cachedRegexp, nil
+	}
+	compiledRegexp, err := regexp.Compile(r)
+	if err == nil {
+		regexpCache[r] = compiledRegexp
+	}
+	return compiledRegexp, err
+}
+
+func compileCssSelectorAndCache(r string) css.Selector {
+	cachedSelector, ok := cssSelectorCache[r]
+	if ok {
+		return cachedSelector
+	}
+	compiledSelector := css.MustCompile(r)
+	cssSelectorCache[r] = compiledSelector
+	return compiledSelector
 }
 
 func decodeSelectField(d *Dashing) error {
@@ -415,9 +444,6 @@ func initDB(name string, fresh bool) (*sql.DB, error) {
 		if _, err := db.Exec(`CREATE TABLE searchIndex(id INTEGER PRIMARY KEY, name TEXT, type TEXT, path TEXT)`); err != nil {
 			return db, err
 		}
-		if _, err := db.Exec(`CREATE UNIQUE INDEX anchor ON searchIndex (name, type, path)`); err != nil {
-			return db, err
-		}
 	}
 
 	return db, nil
@@ -425,6 +451,11 @@ func initDB(name string, fresh bool) (*sql.DB, error) {
 
 // texasRanger is... wait for it... a WALKER!
 func texasRanger(base string, base_depth int, name string, dashing Dashing, db *sql.DB) error {
+	query, err := db.Prepare(`INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES (?,?,?)`)
+	if err != nil {
+		return err
+	}
+	defer query.Close()
 	filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
 		fmt.Printf("Reading %s\n", path)
 		if strings.HasPrefix(path, name+".docset") {
@@ -448,7 +479,7 @@ func texasRanger(base string, base_depth int, name string, dashing Dashing, db *
 			}
 			for _, ref := range found {
 				fmt.Printf("Match: '%s' is type %s at %s\n", ref.name, ref.etype, ref.href)
-				db.Exec(`INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES (?,?,?)`, ref.name, ref.etype, ref.href)
+				query.Exec(ref.name, ref.etype, ref.href)
 			}
 		} else {
 			// Or we just copy the file.
@@ -534,9 +565,9 @@ func parseHTML(path string, source_depth int, dest string, dashing Dashing) ([]*
 		return refs, err
 	}
 	defer r.Close()
-	top, err := html.Parse(r)
+	top, err := html.Parse(bufio.NewReader(r))
 
-	root := css.MustCompile("*[href],*[src]")
+	root := compileCssSelectorAndCache("*[href],*[src]")
 	roots := root.MatchAll(top)
 	for _, node := range roots {
 		for i, attribute := range node.Attr {
@@ -562,7 +593,7 @@ func parseHTML(path string, source_depth int, dest string, dashing Dashing) ([]*
 				continue
 			}
 
-			m := css.MustCompile(pattern)
+			m := compileCssSelectorAndCache(pattern)
 			found := m.MatchAll(top)
 			for _, n := range found {
 				textString := text(n)
