@@ -425,11 +425,11 @@ func initDB(name string, fresh bool) (*sql.DB, error) {
 
 // texasRanger is... wait for it... a WALKER!
 func texasRanger(base string, base_depth int, name string, dashing Dashing, db *sql.DB) error {
-    tx, err := db.Begin()
-    if err != nil {
-        fmt.Printf("Error on db begin");
-        return nil;
-    }
+	tx, err := db.Begin()
+	if err != nil {
+		fmt.Printf("Error on db begin")
+		return nil
+	}
 	query, err := tx.Prepare(`INSERT OR IGNORE INTO searchIndex(name, type, path) VALUES (?,?,?)`)
 	if err != nil {
 		return err
@@ -470,11 +470,11 @@ func texasRanger(base string, base_depth int, name string, dashing Dashing, db *
 		}
 		return nil
 	})
-    err = tx.Commit()
-    if err != nil {
-      fmt.Printf("Error on commit")
-      return nil
-    }
+	err = tx.Commit()
+	if err != nil {
+		fmt.Printf("Error on commit")
+		return nil
+	}
 
 	return nil
 }
@@ -500,7 +500,7 @@ func ignore(src string) bool {
 
 func encodeHTMLentities(orig string) string {
 	escaped := new(bytes.Buffer)
-    escaped.Grow(len(orig));
+	escaped.Grow(len(orig))
 	for _, c := range orig {
 		if c < 160 || point_to_entity[c] == "" {
 			escaped.WriteRune(c)
